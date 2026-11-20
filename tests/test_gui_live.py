@@ -110,10 +110,12 @@ class LiveTab(unittest.TestCase):
         self.assertEqual(str(self.app.btn_live_copy["state"]), "normal")
 
         # language toggle keeps the rows and relabels the banner
-        self.app.toggle_language()
-        self.assertIn("바꿔치기 감지", self.app.live_banner.cget("text"))
+        self.app.set_language("zh-CN")
+        self.assertIn("模型被替换", self.app.live_banner.cget("text"))
         self.assertEqual(len(self.app.live_tree.get_children()), 1)
-        self.app.toggle_language()
+        row = self.app.live_tree.item(self.app.live_tree.get_children()[0], "values")
+        self.assertEqual(row[5:8], ("已完成", "模型被替换", "resp_a"))
+        self.app.set_language("en")
 
         self.app.stop_live(ask=False)
         self.assertIsNone(self.app.monitor)

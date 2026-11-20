@@ -9,7 +9,8 @@
 
 <p align="center">
   <b>내가 고른 모델이 정말 대답했을까요? 꼬마 탐정이 확인해 드려요! 🔍</b><br>
-  <a href="https://github.com/darkdarkcocoa/codex-routing-detector/releases">다운로드</a> ·
+  <a href="https://github.com/fogey1024/codex-routing-detector/releases">다운로드</a> ·
+  <a href="README.zh-CN.md">简体中文</a> ·
   <a href="README.md">English</a> ·
   <a href="#faq">자주 묻는 질문</a>
 </p>
@@ -43,12 +44,12 @@ Codex 안에서는 이걸 볼 수 없어요. 화면과 로컬 로그에는 **요
 
 ## 설치 📦
 
-- **Windows, Python 없이**: [Releases](https://github.com/darkdarkcocoa/codex-routing-detector/releases)에서
+- **Windows, Python 없이**: 빌드가 공개되면 [Releases](https://github.com/fogey1024/codex-routing-detector/releases)에서
   `codex-routing-detector.exe`를 받아 더블클릭하세요. 코드 서명이 없어서 처음 한 번 SmartScreen
   경고가 떠요. "추가 정보" → "실행"을 누르면 돼요.
 - **Python 3.8 이상**:
   ```
-  pipx install git+https://github.com/darkdarkcocoa/codex-routing-detector
+  pipx install git+https://github.com/fogey1024/codex-routing-detector.git
   pipx inject codex-routing-detector pywebview
   ```
   설치한 뒤 `codex-routing-detector-gui`(창)나 `codex-routing-detector`(터미널)를 실행하세요.
@@ -164,7 +165,7 @@ Codex with a ChatGPT account"라며 거절해요. 그래서 접두사를 떼고 
 - **웜업 / 턴**: Codex는 세션마다 요청을 두 번 보내요. 자동으로 가는 웜업과 실제 프롬프트인
   턴이에요. 어느 쪽이든 다른 모델이 대답하면 바꿔치기예요.
 - **보고서 복사 / JSON 저장 / 로그 폴더**: 증거를 텍스트로, JSON으로, 서버 메시지 원문으로 줘요.
-- 오른쪽 위 **한국어 / EN**으로 도움말까지 모든 글자를 바꿀 수 있어요.
+- 오른쪽 위 **简体中文 / English / 한국어**에서 창과 도움말의 언어를 선택할 수 있어요.
 
 ## 터미널 버전 ⌨️
 

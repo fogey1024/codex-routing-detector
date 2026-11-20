@@ -5,7 +5,7 @@ Wraps codex_routing_detector.run_check() in a tkinter window: pick a model, pres
 which model actually answered. Everything else (how the check works, what the verdicts mean,
 privacy notes) is in README.md.
 
-Flags: --lang ko|en starts in that language. Development-only flags:
+Flags: --lang zh-CN|en|ko starts in that language. Development-only flags:
   --fake          feed the bundled fixture runs instead of launching codex (no quota, no network)
   --auto-check    press Check as soon as the window is up
   --exit-after S  close the window S seconds after a check finished (or failed to start)
@@ -30,9 +30,14 @@ import codex_routing_assets as assets
 import codex_routing_detector as cmc
 import codex_routing_live as live
 import codex_routing_proxy as crp
+import codex_routing_zh as zh
 
 APP_TITLE = "Codex Routing Detector"
-REPO_URL = "https://github.com/darkdarkcocoa/codex-routing-detector"
+GUI_REPO = "fogey1024/codex-routing-detector"
+REPO_URL = f"https://github.com/{GUI_REPO}"
+GUI_RELEASES_URL = f"{REPO_URL}/releases"
+DEFAULT_LANGUAGE = "zh-CN"
+LANGUAGES = {"zh-CN": "简体中文", "en": "English", "ko": "한국어"}
 # 16x16 GitHub-style mark (dark disc, white silhouette), embedded so the exe needs no image file.
 GITHUB_ICON_PNG_B64 = (
     "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXElEQVR42mNgwAJUNPX/Y8MMhAAujUQZRKxmrIbABGGAWD5BA9AxVgOwKSAEULyC"
@@ -51,7 +56,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "wire": "Wire mode (mitmproxy)", "no_mitm": "Wire mode (mitmproxy missing)",
         "codex_btn": "Codex...", "codex_auto": "auto-detect", "codex_pick_title": "Pick the codex binary",
         "check": "Check", "cancel": "Cancel", "copy": "Copy report", "save_json": "Save JSON...", "open_logs": "Open log folder",
-        "lang": "한국어", "idle": "Ready. Press Check to run one short Codex turn per model.",
+        "idle": "Ready. Press Check to run one short Codex turn per model.",
         "starting": "Starting codex ({version})...", "running": "Running probe {i}/{n}: {model} ({effort})...",
         "done": "Done in {secs}s. Raw logs: {dir}", "cancelling": "Cancelling...", "cancelled": "Cancelled.",
         "failed": "The check could not start.",
@@ -140,13 +145,17 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "guide_ok": "Got it!",
         "guide_skip": "Don't show this again",
         "panel_options": "Options", "panel_results": "Results", "panel_session": "Session",
+        "logs_label": "logs", "error_label": "error", "all_files": "all files",
+        "codex_missing": "codex binary not found ({how}).",
+        "startup_failed": "{title} could not start: {error}",
+        "language_menu": "Interface language",
     },
     "ko": {
         "model": "모델", "effort": "Effort", "repeat": "반복",
         "wire": "Wire 모드 (mitmproxy)", "no_mitm": "Wire 모드 (mitmproxy 없음)",
         "codex_btn": "Codex...", "codex_auto": "자동 탐지", "codex_pick_title": "codex 실행 파일 선택",
         "check": "Check", "cancel": "취소", "copy": "보고서 복사", "save_json": "JSON 저장...", "open_logs": "로그 폴더 열기",
-        "lang": "English", "idle": "준비됨. Check를 누르면 모델마다 짧은 Codex 턴을 하나 보냅니다.",
+        "idle": "준비됨. Check를 누르면 모델마다 짧은 Codex 턴을 하나 보냅니다.",
         "starting": "codex 시작 중 ({version})...", "running": "검사 중 {i}/{n}: {model} ({effort})...",
         "done": "완료 ({secs}초). 원문 로그: {dir}", "cancelling": "취소하는 중...", "cancelled": "취소됨.",
         "failed": "검사를 시작하지 못했습니다.",
@@ -235,7 +244,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "guide_ok": "알겠어요!",
         "guide_skip": "다시 보지 않기",
         "panel_options": "옵션", "panel_results": "결과", "panel_session": "세션",
+        "logs_label": "로그", "error_label": "오류", "all_files": "모든 파일",
+        "codex_missing": "Codex 실행 파일을 찾지 못했습니다 ({how}).",
+        "startup_failed": "{title}을(를) 시작하지 못했습니다: {error}",
+        "language_menu": "인터페이스 언어",
     },
+    "zh-CN": zh.TK_STRINGS,
 }
 
 MENU: Dict[str, Dict[str, str]] = {
@@ -243,9 +257,11 @@ MENU: Dict[str, Dict[str, str]] = {
            "guide": "Live monitor guide"},
     "ko": {"help": "도움말", "usage": "기본 사용법", "terms": "용어 설명", "about": "정보", "close": "닫기",
            "guide": "라이브 모니터 안내"},
+    "zh-CN": zh.TK_MENU,
 }
 
 HELP_USAGE = {
+    "zh-CN": zh.TK_USAGE,
     "en": """HOW TO USE
 
 1. Pick the model to check. The default is the model in ~/.codex/config.toml.
@@ -323,6 +339,7 @@ Codex 데스크톱 앱은 감시할 수 없습니다. 패키지 형태로 설치
 }
 
 HELP_TERMS = {
+    "zh-CN": zh.TK_TERMS,
     "en": """GLOSSARY
 
 Requested model
@@ -426,6 +443,7 @@ Wire 모드: 임시 인증서로 로컬 mitmproxy를 띄워 WebSocket 양방향�
 }
 
 HELP_ABOUT = {
+    "zh-CN": zh.TK_ABOUT,
     "en": """codex-routing-detector v{version}
 
 Shows which model actually answers your Codex requests, by reading the model name the server
@@ -484,6 +502,15 @@ def load_settings() -> dict:
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def start_language(explicit: Optional[str] = None) -> str:
+    lang = explicit or load_settings().get("lang")
+    return lang if isinstance(lang, str) and lang in LANGUAGES else DEFAULT_LANGUAGE
+
+
+def display_status(value: str, lang: str) -> str:
+    return zh.STATUS.get(value, value) if lang == "zh-CN" else value
 
 
 def save_settings(data: dict) -> None:
@@ -1027,12 +1054,12 @@ def apply_theme(root: tk.Tk) -> None:
 
 
 class App:
-    def __init__(self, root: tk.Tk, lang: str = "en", fake: bool = False, exit_after: Optional[float] = None,
+    def __init__(self, root: tk.Tk, lang: str = DEFAULT_LANGUAGE, fake: bool = False, exit_after: Optional[float] = None,
                  update_check: bool = True, auto_update: bool = True, updated_from: Optional[str] = None,
                  confirm: bool = True) -> None:
         self.root = root
         self.settings = load_settings()
-        self.lang = lang if lang in STRINGS else "en"
+        self.lang = lang if lang in LANGUAGES else DEFAULT_LANGUAGE
         self.fake = fake
         self.exit_after = exit_after
         self.confirm_before_check = confirm and not bool(self.settings.get("skip_confirm"))
@@ -1066,7 +1093,7 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.after(100, self._poll)
         if update_check:
-            threading.Thread(target=lambda: self.q.put(("update", cmc.check_for_update())), daemon=True).start()
+            threading.Thread(target=lambda: self.q.put(("update", cmc.check_for_update(repo=GUI_REPO))), daemon=True).start()
 
     # ---------------------------------------------------------------- layout
     STICKERS = {"panel_options": "sticker_sparkle", "panel_session": "sticker_sparkle", "brief": "sticker_flower",
@@ -1099,6 +1126,10 @@ class App:
         self.help_menu.add_separator()
         self.help_menu.add_command(command=lambda: self.show_help("about"))
         self.menubar.add_cascade(menu=self.help_menu)
+        self.language_menu = tk.Menu(self.menubar, tearoff=0)
+        for lang, name in LANGUAGES.items():
+            self.language_menu.add_command(label=name, command=lambda lang=lang: self.set_language(lang))
+        self.menubar.add_cascade(menu=self.language_menu)
         r.configure(menu=self.menubar)
         self.help_windows: Dict[str, tk.Toplevel] = {}
 
@@ -1250,7 +1281,7 @@ class App:
                                     bg=p["bg"], fg=p["accent"], cursor="hand2", padx=4, font=(FONT_UI, 9))
         self.link_github.pack(side="right", padx=6)
         self.link_github.bind("<Button-1>", lambda _e: self.open_repo())
-        self.btn_lang = RoundedButton(foot, command=self.toggle_language, kind="secondary", bg=p["bg"], padx=16, pady=6,
+        self.btn_lang = RoundedButton(foot, command=self._show_language_menu, kind="secondary", bg=p["bg"], padx=16, pady=6,
                                       font=(FONT_UI, 10, "bold"))
         self.btn_lang.pack(side="right", padx=4)
 
@@ -1380,6 +1411,7 @@ class App:
     def _apply_language(self) -> None:
         m = MENU[self.lang]
         self.menubar.entryconfigure(1, label=m["help"])
+        self.menubar.entryconfigure(2, label=self.s("language_menu"))
         self.help_menu.entryconfigure(0, label=m["usage"])
         self.help_menu.entryconfigure(1, label=m["terms"])
         self.help_menu.entryconfigure(2, label=m["guide"])
@@ -1400,7 +1432,7 @@ class App:
         self.btn_copy.configure(text=self.s("copy"))
         self.btn_json.configure(text=self.s("save_json"))
         self.btn_logs.configure(text=self.s("open_logs"))
-        self.btn_lang.configure(text=self.s("lang"))
+        self.btn_lang.configure(text=LANGUAGES[self.lang] + " ▾")
         self.lbl_notes_title.configure(text=self.s("notes"))
         self.lbl_brief_title.configure(text=self.s("brief"))
         for panel in self.panels:
@@ -1449,11 +1481,20 @@ class App:
             self._set_banner("IDLE", self.s("banner_idle"))
             self.lbl_brief.configure(text=self.s("brief_idle"))
 
-    def toggle_language(self) -> None:
-        self.lang = "ko" if self.lang == "en" else "en"
+    def _show_language_menu(self) -> None:
+        self.language_menu.tk_popup(self.btn_lang.winfo_rootx(), self.btn_lang.winfo_rooty())
+
+    def set_language(self, lang: str) -> None:
+        if lang not in LANGUAGES:
+            return
+        previous_status = self._result_status(self.result, self.lang) if self.result is not None else None
+        translate_status = self.var_status.get() == previous_status
+        self.lang = lang
         self.settings["lang"] = self.lang
         save_settings(self.settings)
         self._apply_language()
+        if translate_status and self.result is not None and self.var_status.get() == previous_status:
+            self.var_status.set(self._result_status(self.result, self.lang))
 
     # ------------------------------------------------------------------- help
     def help_text(self, kind: str) -> str:
@@ -1511,7 +1552,8 @@ class App:
                                 wire=bool(self.var_wire.get()) and self.have_mitm, codex=self.codex_path)
 
     def pick_codex(self) -> None:
-        kinds = [("codex", "codex.exe codex codex.cmd"), ("all files", "*")] if os.name == "nt" else [("all files", "*")]
+        all_files = (self.s("all_files"), "*")
+        kinds = [("codex", "codex.exe codex codex.cmd"), all_files] if os.name == "nt" else [all_files]
         path = filedialog.askopenfilename(title=self.s("codex_pick_title"), filetypes=kinds)
         if path:
             self.codex_path = path
@@ -1678,7 +1720,7 @@ class App:
         codex, how = cmc.find_codex(self.codex_path)
         if not codex:
             self.var_live_status.set(self.s("live_failed"))
-            self._live_note(f"codex binary not found ({how}). " + self.s("codex_hint"))
+            self._live_note(self.s("codex_missing", how=how) + " " + self.s("codex_hint"))
             return
         self.clear_live()
         mon = live.LiveMonitor(codex, self.live_dir, launcher=self.launcher)
@@ -1776,8 +1818,9 @@ class App:
     def _render_live_row(self, row: "live.LiveRow") -> None:
         kind_name = {"warmup": self.s("kind_warmup"), "turn": self.s("kind_turn"), "error": "-"}
         v = row.verdict()
+        status = display_status(row.status, self.lang) if row.status else row.error_code or "-"
         values = (row.n, time.strftime("%H:%M:%S", time.localtime(row.first_seen)), row.requested or "?",
-                  kind_name.get(row.kind, row.kind), row.served or "-", row.status or row.error_code or "-", v,
+                  kind_name.get(row.kind, row.kind), row.served or "-", status, display_status(v, self.lang),
                   row.response_id)
         item = self.live_items.get(row.n)
         if item is None:
@@ -1916,14 +1959,18 @@ class App:
         kind_name = {"warmup": self.s("kind_warmup"), "turn": self.s("kind_turn")}
         if not p.responses and not p.stream_errors:
             v = p.verdict()
-            self.tree.insert("", "end", values=(p.index, p.requested, "-", "-", "-", "-", v, "-"), tags=(v,))
+            values = (p.index, p.requested, "-", "-", "-", "-", display_status(v, self.lang), "-")
+            self.tree.insert("", "end", values=values, tags=(v,))
         for r in p.responses:
             v = r.verdict(p.requested)
-            self.tree.insert("", "end", values=(p.index, p.requested, kind_name.get(r.kind, r.kind), r.model or "?",
-                                                r.status or "?", cmc.fmt_time(r.created_at), v, r.response_id), tags=(v,))
+            values = (p.index, p.requested, kind_name.get(r.kind, r.kind), r.model or "?",
+                      display_status(r.status or "?", self.lang), cmc.fmt_time(r.created_at),
+                      display_status(v, self.lang), r.response_id)
+            self.tree.insert("", "end", values=values, tags=(v,))
         for _code, _msg in p.stream_errors:
             v = "UNSUPPORTED" if cmc.is_unsupported_error(_code, _msg) else "ERROR"
-            self.tree.insert("", "end", values=(p.index, p.requested, "-", "-", "-", "-", v, "-"), tags=(v,))
+            values = (p.index, p.requested, "-", "-", "-", "-", display_status(v, self.lang), "-")
+            self.tree.insert("", "end", values=values, tags=(v,))
 
     def _render_result(self, res: cmc.CheckResult) -> None:
         """Table, banner, briefing and details for a finished check (status line untouched)."""
@@ -1969,24 +2016,27 @@ class App:
             for p in res.probes:
                 for r in p.responses:
                     if r.verdict(p.requested) == "ERROR" or r.error_code or r.error_message:
-                        lines.append(f"#{p.index} {p.requested}: error {r.error_code}: {r.error_message}")
+                        lines.append(f"#{p.index} {p.requested}: {self.s('error_label')} {r.error_code}: {r.error_message}")
                 for code, msg in p.stream_errors:
-                    lines.append(f"#{p.index} {p.requested}: error {code}: {msg}")
+                    lines.append(f"#{p.index} {p.requested}: {self.s('error_label')} {code}: {msg}")
                 for n in p.notes:
                     lines.append(f"#{p.index} {p.requested}: {n}")
         self._set_notes("\n".join(lines))
 
     def show_result(self, res: cmc.CheckResult) -> None:
         self._render_result(res)
-        if res.error:
-            self.var_status.set(self.s("failed"))
-        elif res.cancelled:
-            self.var_status.set(self.s("cancelled"))
-        elif res.outdir:
-            self.var_status.set(self.s("done", secs=self.done_secs, dir=cmc.display_path(res.outdir)))
-        else:
-            self.var_status.set(self.s("idle"))
+        self.var_status.set(self._result_status(res, self.lang))
         self._set_running(False)
+
+    def _result_status(self, res: cmc.CheckResult, lang: str) -> str:
+        strings = STRINGS[lang]
+        if res.error:
+            return strings["failed"]
+        if res.cancelled:
+            return strings["cancelled"]
+        if res.outdir:
+            return strings["done"].format(secs=self.done_secs, dir=cmc.display_path(res.outdir))
+        return strings["idle"]
 
     def _set_notes(self, text: str) -> None:
         self.notes.configure(state="normal")
@@ -2071,7 +2121,7 @@ class App:
 
     def open_update(self) -> None:
         import webbrowser
-        webbrowser.open((self.update_info or {}).get("url") or cmc.RELEASES_URL)
+        webbrowser.open((self.update_info or {}).get("url") or GUI_RELEASES_URL)
 
 
 def _enable_dpi_awareness() -> None:
@@ -2095,7 +2145,7 @@ def _report_startup_error(msg: str) -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="codex-routing-detector-gui", add_help=True)
-    ap.add_argument("--lang", default=None, choices=["en", "ko"], help="interface language (remembered)")
+    ap.add_argument("--lang", choices=LANGUAGES, help="interface language (overrides the saved preference at startup)")
     ap.add_argument("--fake", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--auto-check", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--auto-live", action="store_true", help=argparse.SUPPRESS)
@@ -2115,7 +2165,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         _report_startup_error("fixtures not found; --fake needs tests/fixtures next to this file")
         return 1
     _enable_dpi_awareness()
-    lang = a.lang or load_settings().get("lang") or "en"
+    lang = start_language(a.lang)
     try:
         root = tk.Tk()
         app = App(root, lang=lang, fake=a.fake, exit_after=a.exit_after,
@@ -2135,7 +2185,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if app.monitor is not None:  # the window went away without on_close (destroy from elsewhere)
             app.monitor.stop()
     except Exception as e:  # a windowed build has no console: show the reason instead of dying silently
-        _report_startup_error(f"{APP_TITLE} could not start: {type(e).__name__}: {e}")
+        _report_startup_error(STRINGS[lang]["startup_failed"].format(title=APP_TITLE, error=f"{type(e).__name__}: {e}"))
         return 1
     return 0
 

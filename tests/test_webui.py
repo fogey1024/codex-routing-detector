@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -95,6 +96,18 @@ class CheckFlow(WebUiBase):
         self.app.set_option("model", "gpt-6-astra")  # not this machine's config.toml default
         self.app.start_check(confirm=False)
         self.wait_done()
+        result = self.app.result
+        original_report = self.app.copy_report()["text"]
+        self.app.set_lang("zh-CN")
+        vm = self.app.build_vm()
+        self.assertEqual(vm["lang"], "zh-CN")
+        self.assertEqual(vm["check"]["head"], "模型被替换")
+        self.assertEqual(vm["check"]["rows"][0]["kind"], "预热")
+        self.assertEqual(vm["check"]["rows"][0]["verdict"], "REROUTED")
+        self.assertEqual(vm["check"]["rows"][0]["verdictLabel"], "模型被替换")
+        self.assertEqual(self.app.copy_report()["text"], original_report)
+        self.assertIs(self.app.result, result)
+        self.assertEqual(gui.load_settings()["lang"], "zh-CN")
         self.app.set_lang("ko")
         vm = self.app.build_vm()
         self.assertEqual(vm["lang"], "ko")
@@ -110,6 +123,10 @@ class CheckFlow(WebUiBase):
         c = self.app.build_vm()["check"]
         self.assertEqual(c["tone"], "warn")
         self.assertEqual(c["chip"], webui.UI["en"]["chipWarn"])
+        self.app.set_lang("zh-CN")
+        c = self.app.build_vm()["check"]
+        self.assertEqual(c["head"], "检测未完成")
+        self.assertIn("server_is_overloaded", c["brief"])
 
     def test_repeat_is_clamped(self):
         self.app.set_option("repeat", "99")
@@ -215,6 +232,12 @@ class LiveFlow(WebUiBase):
 
         report = self.app.copy_live_report()
         self.assertIn("resp_a", report["text"])
+        self.app.set_lang("zh-CN")
+        rows = self.app.build_vm()["live"]["rows"]
+        self.assertEqual([(r["rid"], r["status"], r["verdictLabel"]) for r in rows],
+                         [("resp_a", "已完成", "模型被替换")])
+        self.assertEqual(self.app.copy_live_report()["text"], report["text"])
+        self.app.set_lang("en")
 
         self.app.stop_live()
         self.assertIsNone(self.app.monitor)
@@ -333,7 +356,7 @@ class Regressions(WebUiBase):
         # regression: a bare "codex" pattern raised ValueError inside pywebview, so the
         # codex picker silently did nothing on Windows
         webview_util = __import__("webview.util", fromlist=["parse_file_type"])
-        for filt in ("codex (*.exe;*.cmd)", "All files (*.*)", "JSON (*.json)"):
+        for filt in ("codex (*.exe;*.cmd)", "All files (*.*)", "所有文件 (*.*)", "JSON (*.json)"):
             webview_util.parse_file_type(filt)  # raises on an invalid filter
 
     def test_push_never_blocks_the_caller(self):
@@ -473,23 +496,25 @@ class WebWording(WebUiBase):
         finally:
             app.shutdown()
 
-    def test_both_languages_have_the_same_keys_and_placeholders(self):
+    def test_languages_have_the_same_keys_and_placeholders(self):
         import string
         import codex_routing_webtext as wt
 
         def fields(text):
             return {f for _, f, _, _ in string.Formatter().parse(text) if f}
 
-        for table in (wt.TEXT, wt.VERDICT):
-            self.assertEqual(set(table["ko"]), set(table["en"]))
-            for key in table["ko"]:
-                self.assertEqual(fields(table["ko"][key]), fields(table["en"][key]), key)
+        for table in (gui.STRINGS, gui.MENU, webui.UI, wt.TEXT, wt.VERDICT):
+            self.assertEqual(set(table), set(gui.LANGUAGES))
+            for lang in ("ko", "zh-CN"):
+                self.assertEqual(set(table[lang]), set(table["en"]))
+                for key in table["en"]:
+                    self.assertEqual(fields(table[lang][key]), fields(table["en"][key]), (lang, key))
         for key in wt.TEXT["en"]:  # every override replaces a key the shared table really has
             self.assertIn(key, gui.STRINGS["en"], key)
 
     def test_help_pages_are_well_formed_and_describe_this_window(self):
         import codex_routing_webtext as wt
-        for lang in ("ko", "en"):
+        for lang in gui.LANGUAGES:
             pages = wt.HELP[lang]
             for kind in ("usage", "terms"):
                 self.assertTrue(pages[kind])
@@ -510,19 +535,46 @@ class WebWording(WebUiBase):
         helps = self.app.init()["helps"]
         self.assertEqual(helps["en"]["about"]["version"], cmc.__version__)
         self.assertIn("usage", helps["ko"])
+        self.assertEqual(helps["zh-CN"]["guide"]["heading"], "如何使用实时监控")
 
     def test_live_guide_explains_codex_side_requests(self):
         # Codex sends its own requests to a smaller model (conversation title and similar chores) at
         # the start of a session; users read that ok line as a reroute unless the guide says so. The
         # model varies: gpt-5.6-luna in September 2026, gpt-5.6-terra beside gpt-6.1-sol in October.
         import codex_routing_webtext as wt
-        for lang in ("ko", "en"):
+        for lang in gui.LANGUAGES:
             guide = json.dumps(wt.HELP[lang]["guide"], ensure_ascii=False)
             self.assertIn("gpt-5.6-luna → gpt-5.6-luna", guide, lang)
             self.assertIn("gpt-5.6-terra", guide, lang)
-        for lang in ("en", "ko"):
+        for lang in gui.LANGUAGES:
             for slug in ("gpt-5.6-luna", "gpt-5.6-terra"):
                 self.assertIn(slug, gui.STRINGS[lang]["guide_body"], lang)
+
+    def test_start_language_prefers_explicit_then_valid_saved_language(self):
+        self.assertEqual(gui.start_language(), "zh-CN")
+        for lang in gui.LANGUAGES:
+            gui.save_settings({"lang": lang})
+            self.assertEqual(gui.start_language(), lang)
+            self.assertEqual(gui.start_language("ko"), "ko")
+        for invalid in ("fr", None, ["ko"]):
+            gui.save_settings({"lang": invalid})
+            self.assertEqual(gui.start_language(), "zh-CN")
+
+    def test_entry_points_accept_zh_cn_and_share_the_saved_language(self):
+        with patch.object(gui, "main", return_value=0) as tk_main:
+            self.assertEqual(webui.main(["--tk", "--lang", "zh-CN"]), 0)
+            tk_main.assert_called_once_with(["--lang", "zh-CN"])
+        gui.save_settings({"lang": "en"})
+        with patch.object(gui.tk, "Tk"), patch.object(gui, "App") as app:
+            self.assertEqual(gui.main(["--lang", "zh-CN", "--no-update-check"]), 0)
+            self.assertEqual(app.call_args.kwargs["lang"], "zh-CN")
+            self.assertEqual(gui.main(["--no-update-check"]), 0)
+            self.assertEqual(app.call_args.kwargs["lang"], "en")
+
+    def test_web_updates_check_the_fork(self):
+        with patch.object(cmc, "check_for_update", return_value=None) as check:
+            self.app._check_update()
+            check.assert_called_once_with(repo="fogey1024/codex-routing-detector")
 
     def test_model_names_are_bold_in_the_brief(self):
         c = self.check_as("gpt-6-astra", "en")
@@ -655,7 +707,7 @@ class MascotPictures(WebUiBase):
         self.assertGreaterEqual(len(copies), 12)
         for path, key in copies.items():
             self.assertEqual((root / path).read_bytes(), base64.b64decode(assets.IMAGES[key]), path)
-        for readme in ("README.md", "README.ko.md"):
+        for readme in ("README.md", "README.ko.md", "README.zh-CN.md"):
             text = (root / readme).read_text(encoding="utf-8")
             self.assertIn('src="art/source/mascot_anim.webp"', text)
             self.assertIn('srcset="docs/mascot.png"', text)

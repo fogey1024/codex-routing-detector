@@ -54,7 +54,8 @@ the repository's social preview card (1280x640), rendered by `tools/make_social_
 headless Edge; GitHub has no API for it, so it is uploaded by hand under Settings > General >
 Social preview.
 
-The window's words live in `codex_routing_webtext.py` (Korean and English). The fallback tkinter
-window keeps its own strings in `codex_routing_detector_gui.py`.
+The web window uses `codex_routing_webui.py` and `codex_routing_webtext.py` for its localized labels
+and help. The fallback tkinter window uses `codex_routing_detector_gui.py`. Simplified Chinese
+translations for both live in `codex_routing_zh.py`.
 
 ![Live monitor guide](screenshot-guide.png)

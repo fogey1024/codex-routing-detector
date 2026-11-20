@@ -9,7 +9,8 @@
 
 <p align="center">
   <b>Did the model you picked really answer? Let the little detective check! 🔍</b><br>
-  <a href="https://github.com/darkdarkcocoa/codex-routing-detector/releases">Download</a> ·
+  <a href="https://github.com/fogey1024/codex-routing-detector/releases">Download</a> ·
+  <a href="README.zh-CN.md">简体中文</a> ·
   <a href="README.ko.md">한국어</a> ·
   <a href="#faq">FAQ</a>
 </p>
@@ -45,11 +46,11 @@ between OK and rerouted within an hour), so check whenever it matters. ✨
 ## Install 📦
 
 - **Windows, no Python needed**: download `codex-routing-detector.exe` from
-  [Releases](https://github.com/darkdarkcocoa/codex-routing-detector/releases) and double-click
+  [Releases](https://github.com/fogey1024/codex-routing-detector/releases) when a build is available and double-click
   it. The exe has no code signature, so SmartScreen warns once: "More info" → "Run anyway".
 - **Python 3.8+**:
   ```
-  pipx install git+https://github.com/darkdarkcocoa/codex-routing-detector
+  pipx install git+https://github.com/fogey1024/codex-routing-detector.git
   pipx inject codex-routing-detector pywebview
   ```
   Then run `codex-routing-detector-gui` (window) or `codex-routing-detector` (terminal).
@@ -176,7 +177,7 @@ of it together for you. 📮
   turn. Either one answered by another model counts as rerouted.
 - **Copy report / Save JSON / Log folder**: the evidence as text, as JSON, and as raw server
   messages.
-- **한국어 / EN** at the top right switches every label, help included.
+- **简体中文 / English / 한국어** at the top right switches the window and its help pages.
 
 ## Command line ⌨️
 

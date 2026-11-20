@@ -1066,7 +1066,6 @@ def to_json(probes: List[Probe], codex_desc: str, codex_version: str, method: st
 EXE_ASSET_NAME = "codex-routing-detector.exe"
 REPO = "darkdarkcocoa/codex-routing-detector"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
-LATEST_API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 NO_UPDATE_ENV = "CODEX_ROUTING_DETECTOR_NO_UPDATE"
 
 
@@ -1075,7 +1074,7 @@ def version_tuple(v: str) -> Tuple[int, ...]:
     return tuple(int(x) for x in re.findall(r"\d+", v)) or (0,)
 
 
-def check_for_update(current: str = __version__, timeout: float = 4.0, fetch=None) -> Optional[dict]:
+def check_for_update(current: str = __version__, timeout: float = 4.0, fetch=None, *, repo: str = REPO) -> Optional[dict]:
     """Return {"version", "url"} when GitHub has a newer release, None otherwise (also on any
     error). One anonymous GET to api.github.com; disabled when NO_UPDATE_ENV is set."""
     if os.environ.get(NO_UPDATE_ENV):
@@ -1083,8 +1082,9 @@ def check_for_update(current: str = __version__, timeout: float = 4.0, fetch=Non
     try:
         if fetch is None:
             import urllib.request
-            req = urllib.request.Request(LATEST_API_URL, headers={"User-Agent": f"codex-routing-detector/{current}",
-                                                                   "Accept": "application/vnd.github+json"})
+            api_url = f"https://api.github.com/repos/{repo}/releases/latest"
+            req = urllib.request.Request(api_url, headers={"User-Agent": f"codex-routing-detector/{current}",
+                                                          "Accept": "application/vnd.github+json"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8", "replace"))
         else:
@@ -1092,7 +1092,8 @@ def check_for_update(current: str = __version__, timeout: float = 4.0, fetch=Non
         tag = str(data.get("tag_name") or data.get("name") or "")
         if not tag or version_tuple(tag) <= version_tuple(current):
             return None
-        info = {"version": tag.lstrip("vV"), "url": data.get("html_url") or RELEASES_URL, "asset": None}
+        releases_url = f"https://github.com/{repo}/releases"
+        info = {"version": tag.lstrip("vV"), "url": data.get("html_url") or releases_url, "asset": None}
         for a in data.get("assets") or []:
             if isinstance(a, dict) and a.get("name") == EXE_ASSET_NAME and a.get("browser_download_url"):
                 info["asset"] = {"url": a["browser_download_url"], "size": a.get("size"), "digest": a.get("digest")}

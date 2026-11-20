@@ -1,5 +1,5 @@
 """Words of the web window (codex_routing_webui): status lines, dialogs, the plain-words verdict
-and the help pages, in Korean and English.
+and the help pages, in Korean, English and Simplified Chinese.
 
 The fallback tkinter window keeps its own texts in codex_routing_detector_gui (they describe
 that window's controls). Here the tone is friendly, and the verdict only says which model was
@@ -10,8 +10,11 @@ Help pages are data, not prose: the page renders every section as a card. Inside
 """
 from typing import Dict
 
+import codex_routing_zh as zh
+
 # Status lines and dialogs. Every key overrides the same key in codex_routing_detector_gui.STRINGS.
 TEXT: Dict[str, Dict[str, str]] = {
+    "zh-CN": zh.WEB_TEXT,
     "ko": {
         "starting": "Codex를 준비하는 중이에요 ({version})...",
         "cancelling": "취소하는 중이에요...",
@@ -42,7 +45,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "live_stop_confirm": "중지하면 지켜보던 Codex 창도 같이 닫혀요. 지금 중지할까요?",
         "live_close_confirm": "라이브 모니터가 아직 돌고 있어요. 이 창을 닫으면 지켜보던 Codex 창도 같이 닫혀요. "
                               "닫을까요?",
-        "update_pip": "새 버전(v{new})이 나왔어요! 업데이트 명령: pipx upgrade codex-routing-detector",
+        "update_pip": "새 버전(v{new})이 나왔어요! 왼쪽 아래 버전 표시를 눌러 확인하세요.",
         "update_manual": "새 버전(v{new})이 나왔어요! 왼쪽 아래 NEW를 눌러 받아 주세요.",
         "update_downloading": "새 버전(v{new})을 받는 중이에요... {mb} MB",
         "update_restarting": "다 받았어요! 새 버전(v{new})으로 다시 시작할게요...",
@@ -80,7 +83,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "live_stop_confirm": "Stopping also closes the Codex window I'm watching. Stop now?",
         "live_close_confirm": "The live monitor is still running. Closing this window also closes the Codex window "
                               "I'm watching. Close it?",
-        "update_pip": "Version {new} is out! Update with: pipx upgrade codex-routing-detector",
+        "update_pip": "Version {new} is out! Click the version badge at the bottom left for updates.",
         "update_manual": "Version {new} is out! Click NEW at the bottom left to get it.",
         "update_downloading": "Downloading v{new}... {mb} MB",
         "update_restarting": "All downloaded! Restarting as v{new}...",
@@ -92,6 +95,7 @@ TEXT: Dict[str, Dict[str, str]] = {
 # The verdict card: headline and the plain-words paragraph under it. Model names are **bold**;
 # no plan or usage talk here (that lives in Details and the copied report).
 VERDICT: Dict[str, Dict[str, str]] = {
+    "zh-CN": zh.WEB_VERDICT,
     "ko": {
         "idleBrief": "검사하기를 누르면 Codex에 아주 짧은 프롬프트 하나를 보내고, 실제로 어떤 모델이 대답했는지 "
                      "알려 드릴게요.",
@@ -174,6 +178,7 @@ VERDICT: Dict[str, Dict[str, str]] = {
 # Help pages. A section is {"icon", "title", "items"} and may set "numbered"; an item is a string,
 # {"term", "text"} or {"chip", "tone", "text"} (tone: ok / bad / warn / idle).
 HELP: Dict[str, dict] = {
+    "zh-CN": zh.WEB_HELP,
     "ko": {
         "usage": [
             {"icon": "🐾", "title": "검사는 버튼 하나면 끝나요", "numbered": True, "items": [

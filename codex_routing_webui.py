@@ -8,7 +8,7 @@ the page only renders a view model pushed from here and calls back through pyweb
 Falls back to the tkinter window (codex_routing_detector_gui) when pywebview or a web engine is
 not available.
 
-Flags: --lang ko|en starts in that language. Development-only flags:
+Flags: --lang zh-CN|en|ko starts in that language. Development-only flags:
   --fake          feed the bundled fixture runs instead of launching codex (no quota, no network)
   --auto-check    press Check as soon as the window is up
   --auto-live     start the live monitor as soon as the window is up
@@ -35,6 +35,7 @@ import codex_routing_detector as cmc
 import codex_routing_detector_gui as tkgui  # shared strings, briefing and settings helpers
 import codex_routing_live as live
 import codex_routing_proxy as crp
+import codex_routing_zh as zh
 
 APP_TITLE = tkgui.APP_TITLE
 REPO_URL = tkgui.REPO_URL
@@ -68,6 +69,7 @@ MAX_REPEAT = tkgui.MAX_REPEAT
 # Labels and headlines of the redesigned page (the briefing paragraphs, help texts and
 # confirmation dialogs reuse tkgui.STRINGS / HELP_* so both UIs stay in step).
 UI: Dict[str, Dict[str, str]] = {
+    "zh-CN": zh.WEB_UI,
     "ko": {
         "subtitle": "내 요청에 실제로 답한 모델은?",
         "tabCheck": "검사", "tabLive": "라이브 모니터",
@@ -100,6 +102,7 @@ UI: Dict[str, Dict[str, str]] = {
         "statusPreparing": "Codex를 준비하는 중이에요...", "confirmRepeat": "반복이 {n}번이라 {n}번 보내요.",
         "closeTitle": "창을 닫을까요?",
         "customModel": "직접 입력...", "customModelTitle": "모델 이름 직접 입력",
+        "languageMenu": "인터페이스 언어",
     },
     "en": {
         "subtitle": "Which model really answered your request?",
@@ -133,6 +136,7 @@ UI: Dict[str, Dict[str, str]] = {
         "statusPreparing": "Getting Codex ready...", "confirmRepeat": "With repeat at {n}, it goes out {n} times.",
         "closeTitle": "Close the window?",
         "customModel": "Type a model...", "customModelTitle": "Enter a model slug",
+        "languageMenu": "Interface language",
     },
 }
 
@@ -162,7 +166,7 @@ def _data_uri(name: str) -> str:
 
 
 PAGE = r"""<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <title>Codex Routing Detector</title>
@@ -180,6 +184,10 @@ __FONT_KO_FACES__
   --accent: #2a7d96; --accent-link: #1f6070;
   --sans: "Fredoka", "NanumSquareRound", "Segoe UI Variable", "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
   --mono: "JetBrains Mono", Consolas, monospace;
+}
+:root:lang(zh-CN) {
+  --sans: "Fredoka", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", monospace;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -211,8 +219,8 @@ button:disabled { cursor: default; }
 .header .subtitle { font-size: 12.5px; color: var(--muted); }
 .langtoggle { display: flex; align-items: center; gap: 4px; background: var(--card); border-radius: 999px;
   padding: 5px; box-shadow: 0 1px 3px rgba(47,58,51,.08); font-size: 12px; font-weight: 600; }
-.langtoggle span { padding: 4px 11px; border-radius: 999px; color: var(--muted); cursor: pointer; }
-.langtoggle span.on { background: var(--accent); color: #ffffff; }
+.langtoggle button { padding: 4px 11px; border-radius: 999px; color: var(--muted); white-space: nowrap; }
+.langtoggle button[aria-pressed="true"] { background: var(--accent); color: #ffffff; }
 .helpbtn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px;
   background: var(--card); box-shadow: 0 1px 3px rgba(47,58,51,.08); color: var(--muted);
   font-size: 15px; font-weight: 700; }
@@ -466,8 +474,10 @@ button:disabled { cursor: default; }
       <div class="appname">Codex Routing Detector</div>
       <div class="subtitle" id="subtitle"></div>
     </div>
-    <div class="langtoggle" id="langtoggle">
-      <span data-lang="ko">한국어</span><span data-lang="en">EN</span>
+    <div class="langtoggle" id="langtoggle" role="group">
+      <button type="button" lang="zh-CN" data-lang="zh-CN">简体中文</button>
+      <button type="button" lang="en" data-lang="en">English</button>
+      <button type="button" lang="ko" data-lang="ko">한국어</button>
     </div>
     <button class="helpbtn" id="helpbtn">?</button>
   </div>
@@ -648,7 +658,7 @@ function renderRows(holder, rows, animateFrom) {
       d.classList.add("anim");
       d.style.animationDelay = ((i - animateFrom) * 90) + "ms";
     }
-    if (r.verdict) d.title = r.verdict;
+    if (r.verdictLabel) d.title = r.verdictLabel;
     d.innerHTML =
       '<div class="dot">' + esc(r.n) + "</div>" +
       '<div class="kind">' + esc(r.kind) + "</div>" +
@@ -682,11 +692,14 @@ function popConfetti() {
 
 function renderStatics() {
   const s = t();
+  document.documentElement.lang = crd.vm.lang;
   $("subtitle").textContent = s.subtitle;
   $("tab-check").querySelector("span").textContent = s.tabCheck;
   $("tab-live").querySelector("span").textContent = s.tabLive;
-  document.querySelectorAll("#langtoggle span").forEach((el) =>
-    el.classList.toggle("on", el.dataset.lang === crd.vm.lang));
+  $("langtoggle").setAttribute("aria-label", s.languageMenu);
+  $("helpbtn").setAttribute("aria-label", s.helpTitle);
+  document.querySelectorAll("#langtoggle button").forEach((el) =>
+    el.setAttribute("aria-pressed", String(el.dataset.lang === crd.vm.lang)));
   $("c-lead").textContent = s.settings; $("l-lead").textContent = s.session;
   $("k-model").textContent = s.model; $("k-effort").textContent = s.effort; $("k-repeat").textContent = s.repeat;
   $("lk-model").textContent = s.model; $("lk-effort").textContent = s.effort;
@@ -1034,7 +1047,7 @@ function call(p) { return p.catch(() => null); }  // js_api errors surface as re
 function wire() {
   $("tab-check").onclick = () => selectTab("check");
   $("tab-live").onclick = () => selectTab("live");
-  document.querySelectorAll("#langtoggle span").forEach((el) =>
+  document.querySelectorAll("#langtoggle button").forEach((el) =>
     el.onclick = () => call(api().set_lang(el.dataset.lang)));
   $("helpbtn").onclick = () => showHelp("usage");
   $("github").onclick = (e) => { e.preventDefault(); call(api().open_repo()); };
@@ -1147,13 +1160,13 @@ class WebApp:
     the page calls the public methods through js_api, Python pushes the view model back with
     render()."""
 
-    def __init__(self, lang: str = "en", fake: bool = False, exit_after: Optional[float] = None,
+    def __init__(self, lang: str = tkgui.DEFAULT_LANGUAGE, fake: bool = False, exit_after: Optional[float] = None,
                  update_check: bool = True, auto_update: bool = True, updated_from: Optional[str] = None,
                  confirm: bool = True) -> None:
         self.window = None  # set by main() after create_window
         self.lock = threading.RLock()
         self.settings = tkgui.load_settings()
-        self.lang = lang if lang in UI else "en"
+        self.lang = lang if lang in UI else tkgui.DEFAULT_LANGUAGE
         self.fake = fake
         self.exit_after = exit_after
         self.confirm_before_check = confirm and not bool(self.settings.get("skip_confirm"))
@@ -1269,6 +1282,8 @@ class WebApp:
                 return self.s("cancelling")
             if self.progress and self.progress[0] == "probe_start":
                 i = self.progress[1]
+                if self.lang == "zh-CN":
+                    return self.s("running", **i)
                 return f"probe {i['i']}/{i['n']} · {i['model']} ({i['effort']})"
             if self.progress and self.progress[0] == "start":
                 return self.s("starting", version=self.progress[1]["codex_version"])
@@ -1368,17 +1383,23 @@ class WebApp:
             if not p.responses and not p.stream_errors:
                 v = p.verdict()
                 rows.append({"n": p.index, "kind": "-", "requested": p.requested, "served": "-",
-                             "status": v, "time": "-", "rid": "-", "tone": _tone_of(v), "verdict": v})
+                             "status": tkgui.display_status(v, self.lang), "time": "-", "rid": "-",
+                             "tone": _tone_of(v), "verdict": v})
             for r in p.responses:
                 v = r.verdict(p.requested)
                 rows.append({"n": p.index, "kind": kind_name.get(r.kind, r.kind), "requested": p.requested,
-                             "served": r.model or "?", "status": r.status or "?",
+                             "served": r.model or "?", "status": tkgui.display_status(r.status or "?", self.lang),
                              "time": cmc.fmt_time(r.created_at), "rid": r.response_id,
                              "tone": _tone_of(v), "verdict": v})
             for code, msg in p.stream_errors:
                 v = "UNSUPPORTED" if cmc.is_unsupported_error(code, msg) else "ERROR"
                 rows.append({"n": p.index, "kind": "-", "requested": p.requested, "served": "-",
                              "status": code or "?", "time": "-", "rid": "-", "tone": _tone_of(v), "verdict": v})
+        return self._label_verdicts(rows)
+
+    def _label_verdicts(self, rows: List[dict]) -> List[dict]:
+        for row in rows:
+            row["verdictLabel"] = tkgui.display_status(row["verdict"], self.lang)
         return rows
 
     def _check_details(self) -> str:
@@ -1396,14 +1417,14 @@ class WebApp:
                 lines.append(f"{self.s('account')}: {acct}")
             lines.append(f"{self.s('codex')}: {res.codex_desc} ({res.codex_version}, {res.method})")
             if res.outdir:
-                lines.append(f"logs: {cmc.display_path(res.outdir)}")
+                lines.append(f"{self.s('logs_label')}: {cmc.display_path(res.outdir)}")
             lines.extend(res.summary_lines)
             for p in res.probes:
                 for r in p.responses:
                     if r.verdict(p.requested) == "ERROR" or r.error_code or r.error_message:
-                        lines.append(f"#{p.index} {p.requested}: error {r.error_code}: {r.error_message}")
+                        lines.append(f"#{p.index} {p.requested}: {self.s('error_label')} {r.error_code}: {r.error_message}")
                 for code, msg in p.stream_errors:
-                    lines.append(f"#{p.index} {p.requested}: error {code}: {msg}")
+                    lines.append(f"#{p.index} {p.requested}: {self.s('error_label')} {code}: {msg}")
                 for n in p.notes:
                     lines.append(f"#{p.index} {p.requested}: {n}")
         return "\n".join(lines)
@@ -1472,11 +1493,12 @@ class WebApp:
         rows = []
         for r in self.agg.rows:
             v = r.verdict()
+            status = tkgui.display_status(r.status, self.lang) if r.status else r.error_code or "-"
             rows.append({"n": r.n, "kind": kind_name.get(r.kind, r.kind), "requested": r.requested or "?",
-                         "served": r.served or "-", "status": r.status or r.error_code or "-",
+                         "served": r.served or "-", "status": status,
                          "time": time.strftime("%H:%M:%S", time.localtime(r.first_seen)),
                          "rid": r.response_id, "tone": _tone_of(v), "verdict": v})
-        return rows
+        return self._label_verdicts(rows)
 
     def _live_status_line(self) -> str:
         mon = self.monitor
@@ -1511,7 +1533,7 @@ class WebApp:
         with self.lock:
             self._start_threads()
             helps = {}
-            for lang in ("ko", "en"):
+            for lang in tkgui.LANGUAGES:
                 pages = webtext.HELP[lang]
                 helps[lang] = {
                     "usage": pages["usage"], "terms": pages["terms"], "guide": pages["guide"],
@@ -1536,7 +1558,7 @@ class WebApp:
 
     def set_lang(self, lang: str) -> None:
         with self.lock:
-            if lang not in UI:
+            if not isinstance(lang, str) or lang not in UI:
                 return
             self.lang = lang
             self.settings["lang"] = lang
@@ -1554,7 +1576,7 @@ class WebApp:
         webbrowser.open(REPO_URL)
 
     def open_update(self) -> None:
-        webbrowser.open((self.update_info or {}).get("url") or cmc.RELEASES_URL)
+        webbrowser.open((self.update_info or {}).get("url") or tkgui.GUI_RELEASES_URL)
 
     def open_config(self) -> None:
         cfg = cmc.codex_home() / "config.toml"
@@ -1606,7 +1628,8 @@ class WebApp:
         if win is None:
             return
         # pywebview only accepts "*" / "*.ext" patterns in filters (a bare name raises ValueError)
-        kinds = ("codex (*.exe;*.cmd)", "All files (*.*)") if os.name == "nt" else ("All files (*.*)",)
+        all_files = f"{self.s('all_files')} (*.*)"
+        kinds = ("codex (*.exe;*.cmd)", all_files) if os.name == "nt" else (all_files,)
         picked = win.create_file_dialog(webview.OPEN_DIALOG, file_types=kinds)
         if picked:
             self.codex_path = picked[0] if isinstance(picked, (list, tuple)) else str(picked)
@@ -1779,7 +1802,7 @@ class WebApp:
             return
         codex, how = cmc.find_codex(self.codex_path)
         if not codex:
-            self._live_note(f"codex binary not found ({how}). " + self.s("codex_hint"))
+            self._live_note(self.s("codex_missing", how=how) + " " + self.s("codex_hint"))
             self.push()
             return
         self._clear_live()
@@ -1946,7 +1969,7 @@ class WebApp:
 
     # ------------------------------------------------------------ updates
     def _check_update(self) -> None:
-        info = cmc.check_for_update()
+        info = cmc.check_for_update(repo=tkgui.GUI_REPO)
         with self.lock:
             self.update_info = info
             if not info:
@@ -2024,7 +2047,7 @@ def feed_fake_live(app: WebApp) -> None:
 # ------------------------------------------------------------------ entry point
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="codex-routing-detector-gui", add_help=True)
-    ap.add_argument("--lang", default=None, choices=["en", "ko"], help="interface language (remembered)")
+    ap.add_argument("--lang", choices=tkgui.LANGUAGES, help="interface language (overrides the saved preference at startup)")
     ap.add_argument("--fake", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--auto-check", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--auto-live", action="store_true", help=argparse.SUPPRESS)
@@ -2061,13 +2084,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         if sys.stderr is not None:
             print(msg, file=sys.stderr)
 
-    lang = a.lang or tkgui.load_settings().get("lang") or "en"
+    lang = tkgui.start_language(a.lang)
     try:
         app = WebApp(lang=lang, fake=a.fake, exit_after=a.exit_after,
                      update_check=not a.no_update_check and not a.fake,
                      auto_update=not a.no_auto_update, updated_from=a.updated_from)
     except Exception as e:  # a windowed build has no console: show the reason instead of dying silently
-        tkgui._report_startup_error(f"{APP_TITLE} could not start: {type(e).__name__}: {e}")
+        msg = tkgui.STRINGS[lang]["startup_failed"].format(title=APP_TITLE, error=f"{type(e).__name__}: {e}")
+        tkgui._report_startup_error(msg)
         return 1
     # The page goes through a temp file, not create_window(html=...): with the embedded fonts it
     # is larger than the ~2 MB WebView2 NavigateToString limit, which fails with a blank window.

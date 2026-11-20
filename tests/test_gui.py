@@ -78,12 +78,19 @@ class GuiSmoke(unittest.TestCase):
     def test_language_toggle_relabels_without_losing_the_result(self):
         self.app.start_check()
         self._pump(15)
-        self.app.toggle_language()
+        self.app.set_language("ko")
         self.assertEqual(self.app.btn_cancel.cget("text"), "취소")
         self.assertEqual(self.app.tree.heading("served")["text"], "실제 응답 모델")
         self.assertIn("바꿔치기 감지", self.app.banner.cget("text"))
         self.assertEqual(len(self.app.tree.get_children()), 2)
-        self.app.toggle_language()
+        self.app.language_menu.invoke(0)
+        self.assertEqual(self.app.lang, "zh-CN")
+        self.assertEqual(gui.load_settings()["lang"], "zh-CN")
+        self.assertEqual(self.app.tree.heading("served")["text"], "实际响应模型")
+        self.assertIn("模型被替换", self.app.banner.cget("text"))
+        self.assertIn("已完成", self.app.var_status.get())
+        self.assertEqual(len(self.app.tree.get_children()), 2)
+        self.app.set_language("en")
         self.assertEqual(self.app.btn_cancel.cget("text"), "Cancel")
 
     def test_window_runs_no_control_probe(self):
@@ -110,7 +117,7 @@ class GuiSmoke(unittest.TestCase):
         self.assertIn("You asked for gpt-6-astra, but the server answered with gpt-5.6-luna (2 of 2 responses).", en)
         self.assertIn("Plan pro, 8%", en)
         self.assertIn("not a usage-limit fallback", en)
-        self.app.toggle_language()
+        self.app.set_language("ko")
         ko = self.app.lbl_brief.cget("text")
         self.assertIn("gpt-6-astra로 요청했지만 서버는 gpt-5.6-luna로 응답했습니다(응답 2개 중 2개).", ko)
         self.assertIn("플랜 pro", ko)
@@ -149,14 +156,14 @@ class GuiSmoke(unittest.TestCase):
         self.assertEqual(str(self.app.btn_logs["state"]), "disabled")
         self.assertEqual(str(self.app.btn_copy["state"]), "normal")
         self.assertIn("boom", self.app.notes.get("1.0", "end"))
-        self.app.toggle_language()  # relabelling after an error keeps the error banner
+        self.app.set_language("ko")  # relabelling after an error keeps the error banner
         self.assertTrue(self.app.banner.cget("text").startswith("오류"), self.app.banner.cget("text"))
 
     def test_language_toggle_keeps_status_text(self):
         self.app.start_check()
         self._pump(15)
         self.app.var_status.set("custom status")
-        self.app.toggle_language()
+        self.app.set_language("zh-CN")
         self.assertEqual(self.app.var_status.get(), "custom status")
 
     def test_close_while_running_cancels_and_joins(self):
@@ -190,9 +197,9 @@ class GuiSmoke(unittest.TestCase):
         while time.time() < end and len(self.app.live_probes) < 1:
             self.root.update()
             time.sleep(0.05)
-        self.app.toggle_language()
+        self.app.set_language("zh-CN")
         rows = [self.app.tree.item(i, "values") for i in self.app.tree.get_children()]
-        self.assertTrue(rows and rows[0][2] == "웜업", rows)
+        self.assertTrue(rows and rows[0][2] == "预热", rows)
         self._pump(15)
 
     def test_help_menu_and_windows(self):
@@ -202,7 +209,7 @@ class GuiSmoke(unittest.TestCase):
         body = win.help_text.get("1.0", "end")
         self.assertIn("Warm-up", body)
         self.assertIn("REROUTED", body)
-        self.app.toggle_language()
+        self.app.set_language("ko")
         self.assertEqual(self.app.menubar.entrycget(1, "label"), "도움말")
         self.assertIn("웜업", win.help_text.get("1.0", "end"))  # open window follows the language
         usage = self.app.show_help("usage").help_text.get("1.0", "end")
@@ -241,7 +248,7 @@ class GuiSmoke(unittest.TestCase):
         finally:
             webbrowser.open = original
         self.assertEqual(opened, ["https://example.test/rel"])
-        self.app.toggle_language()
+        self.app.set_language("ko")
         self.assertIn("NEW v9.9.9", self.app.lbl_version.cget("text"))  # badge survives relabelling
 
     def _fake_update_env(self, frozen, download_ok=True):

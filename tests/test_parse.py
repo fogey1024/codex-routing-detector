@@ -765,6 +765,23 @@ class RunProbeNotes(unittest.TestCase):
 
 
 class UpdateCheck(unittest.TestCase):
+    def test_update_repo_controls_api_and_release_links(self):
+        from unittest.mock import patch
+        from urllib.error import HTTPError
+
+        repo = "fogey1024/codex-routing-detector"
+        with patch("urllib.request.urlopen") as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b'{"tag_name": "v9.9.9"}'
+            for target in (repo, cmc.REPO):
+                with self.subTest(repo=target):
+                    info = cmc.check_for_update(repo=target)
+                    self.assertEqual(info["url"], f"https://github.com/{target}/releases")
+                    self.assertEqual(urlopen.call_args.args[0].full_url,
+                                     f"https://api.github.com/repos/{target}/releases/latest")
+            urlopen.side_effect = HTTPError("", 404, "Not Found", {}, None)
+            self.assertIsNone(cmc.check_for_update(repo=repo))
+
     def test_version_tuple(self):
         self.assertEqual(cmc.version_tuple("v1.2.10"), (1, 2, 10))
         self.assertEqual(cmc.version_tuple("garbage"), (0,))
